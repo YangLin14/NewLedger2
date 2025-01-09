@@ -335,6 +335,14 @@ class _ProfileViewState extends State<ProfileView> {
                       'Category Statistics',
                       style: Theme.of(context).textTheme.titleLarge,
                     ),
+                    const SizedBox(height: 8),
+                    // Add total expense count
+                    Text(
+                      '${store.expenses.length} total expense${store.expenses.length == 1 ? '' : 's'}',
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
+                    ),
                     const SizedBox(height: 16),
                     _buildCategoryPieChart(categoryTotals),
                     const SizedBox(height: 16),

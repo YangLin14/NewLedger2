@@ -118,8 +118,6 @@ class CategoryDetailView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final total = expenses.fold(0.0, (sum, expense) => sum + expense.amount);
-
     return Scaffold(
       appBar: AppBar(
         title: Row(
@@ -146,98 +144,116 @@ class CategoryDetailView extends StatelessWidget {
           ),
         ],
       ),
-      body: Column(
-        children: [
-          Card(
-            margin: const EdgeInsets.all(16),
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      body: Consumer<ExpenseStore>(
+        builder: (context, store, child) {
+          final expenses = store.expenses
+              .where((e) => e.category.id == category.id)
+              .toList()
+              ..sort((a, b) => b.date.compareTo(a.date));
+
+          final total = expenses.fold(0.0, (sum, expense) => sum + expense.amount);
+
+          return Column(
+            children: [
+              Card(
+                margin: const EdgeInsets.all(16),
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
                     children: [
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          Text(
-                            'Total Expenses',
-                            style: Theme.of(context).textTheme.titleMedium,
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Total Expenses',
+                                style: Theme.of(context).textTheme.titleMedium,
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                '${store.profile.currency.symbol}${total.toStringAsFixed(2)}',
+                                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                                  fontWeight: FontWeight.bold,
+                                  color: Theme.of(context).colorScheme.primary,
+                                ),
+                              ),
+                            ],
                           ),
-                          const SizedBox(height: 4),
-                          Text(
-                            '$currencySymbol${total.toStringAsFixed(2)}',
-                            style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                              fontWeight: FontWeight.bold,
-                              color: Theme.of(context).colorScheme.primary,
-                            ),
+                          Icon(
+                            Icons.account_balance_wallet,
+                            size: 40,
+                            color: Theme.of(context).colorScheme.primary,
                           ),
                         ],
                       ),
-                      Icon(
-                        Icons.account_balance_wallet,
-                        size: 40,
-                        color: Theme.of(context).colorScheme.primary,
+                      const SizedBox(height: 8),
+                      Text(
+                        '${expenses.length} expense${expenses.length == 1 ? '' : 's'}',
+                        style: Theme.of(context).textTheme.bodySmall,
                       ),
                     ],
                   ),
-                  const SizedBox(height: 8),
-                  Text(
-                    '${expenses.length} expense${expenses.length == 1 ? '' : 's'}',
-                    style: Theme.of(context).textTheme.bodySmall,
-                  ),
-                ],
+                ),
               ),
-            ),
-          ),
-          Expanded(
-            child: ListView.builder(
-              itemCount: expenses.length,
-              itemBuilder: (context, index) {
-                final expense = expenses[index];
-                return Card(
-                  margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  child: ListTile(
-                    contentPadding: const EdgeInsets.all(16),
-                    title: Text(
-                      expense.name,
-                      style: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 16,
+              Expanded(
+                child: expenses.isEmpty
+                    ? const Center(
+                        child: Text('No expenses in this category'),
+                      )
+                    : ListView.builder(
+                        itemCount: expenses.length,
+                        itemBuilder: (context, index) {
+                          final expense = expenses[index];
+                          return Card(
+                            margin: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 8,
+                            ),
+                            child: ListTile(
+                              contentPadding: const EdgeInsets.all(16),
+                              title: Text(
+                                expense.name,
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 16,
+                                ),
+                              ),
+                              subtitle: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    DateFormat('EEEE, MMMM d, y').format(expense.date),
+                                    style: Theme.of(context).textTheme.bodySmall,
+                                  ),
+                                ],
+                              ),
+                              trailing: Text(
+                                '${store.profile.currency.symbol}${expense.amount.toStringAsFixed(2)}',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 16,
+                                  color: Theme.of(context).colorScheme.primary,
+                                ),
+                              ),
+                              onTap: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => ExpenseDetailView(expense: expense),
+                                  ),
+                                );
+                              },
+                            ),
+                          );
+                        },
                       ),
-                    ),
-                    subtitle: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const SizedBox(height: 4),
-                        Text(
-                          DateFormat('EEEE, MMMM d, y').format(expense.date),
-                          style: Theme.of(context).textTheme.bodySmall,
-                        ),
-                      ],
-                    ),
-                    trailing: Text(
-                      '$currencySymbol${expense.amount.toStringAsFixed(2)}',
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 16,
-                        color: Theme.of(context).colorScheme.primary,
-                      ),
-                    ),
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => ExpenseDetailView(expense: expense),
-                        ),
-                      );
-                    },
-                  ),
-                );
-              },
-            ),
-          ),
-        ],
+              ),
+            ],
+          );
+        },
       ),
     );
   }

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../models/expense.dart';
 import '../models/category.dart';
@@ -60,6 +61,7 @@ class _AddExpenseViewState extends State<AddExpenseView> {
   final _formKey = GlobalKey<FormState>();
   late ExpenseFrequency _selectedFrequency = ExpenseFrequency.once;
   final _receiptScanner = ReceiptScannerService();
+  Uint8List? _receiptImage;
 
   @override
   void initState() {
@@ -70,6 +72,15 @@ class _AddExpenseViewState extends State<AddExpenseView> {
     );
     _selectedDate = widget.expense?.date ?? DateTime.now();
     _selectedCategory = widget.isEditing ? widget.expense?.category : null;
+    
+    // Load existing receipt if editing
+    if (widget.isEditing && widget.expense?.receiptImageId != null) {
+      final store = Provider.of<ExpenseStore>(context, listen: false);
+      final receiptImage = store.getReceiptImage(widget.expense!.receiptImageId);
+      if (receiptImage != null) {
+        _receiptImage = receiptImage;
+      }
+    }
   }
 
   @override
@@ -102,7 +113,7 @@ class _AddExpenseViewState extends State<AddExpenseView> {
     } else {
       switch (_selectedFrequency) {
         case ExpenseFrequency.once:
-          store.addExpense(baseExpense);
+          store.addExpense(baseExpense, receiptImage: _receiptImage);
           break;
         case ExpenseFrequency.monthly:
           for (int i = 0; i < 12; i++) {
@@ -220,6 +231,12 @@ class _AddExpenseViewState extends State<AddExpenseView> {
         if (result['amount'] != null) {
           _amountController.text = result['amount'].toString();
         }
+        if (result['date'] != null) {
+          _selectedDate = result['date'];
+        }
+        if (result['imageData'] != null) {
+          _receiptImage = result['imageData'];
+        }
       });
     }
   }
@@ -282,13 +299,20 @@ class _AddExpenseViewState extends State<AddExpenseView> {
                   border: const OutlineInputBorder(),
                   prefixText: store.profile.currency.symbol,
                 ),
-                keyboardType: TextInputType.number,
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                inputFormatters: [
+                  FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d{0,2}')),
+                ],
                 validator: (value) {
                   if (value == null || value.isEmpty) {
                     return 'Please enter an amount';
                   }
-                  if (double.tryParse(value) == null) {
+                  final amount = double.tryParse(value);
+                  if (amount == null) {
                     return 'Please enter a valid number';
+                  }
+                  if (amount <= 0) {
+                    return 'Amount must be greater than zero';
                   }
                   return null;
                 },
@@ -396,6 +420,75 @@ class _AddExpenseViewState extends State<AddExpenseView> {
                       ),
                     ),
                   ],
+                ),
+              ],
+              if (_receiptImage != null || (widget.expense?.receiptImageId != null)) ...[
+                const SizedBox(height: 16),
+                Card(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              'Receipt',
+                              style: Theme.of(context).textTheme.titleMedium,
+                            ),
+                            if (_receiptImage != null || widget.expense?.receiptImageId != null)
+                              IconButton(
+                                icon: const Icon(Icons.fullscreen),
+                                onPressed: () {
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (context) => Scaffold(
+                                        appBar: AppBar(
+                                          title: const Text('Receipt'),
+                                        ),
+                                        body: Center(
+                                          child: InteractiveViewer(
+                                            minScale: 0.5,
+                                            maxScale: 4.0,
+                                            child: Image.memory(
+                                              _receiptImage ?? 
+                                              store.getReceiptImage(widget.expense!.receiptImageId)!,
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  );
+                                },
+                              ),
+                          ],
+                        ),
+                      ),
+                      AspectRatio(
+                        aspectRatio: 2/3,
+                        child: Container(
+                          decoration: BoxDecoration(
+                            border: Border.all(
+                              color: Theme.of(context).colorScheme.outlineVariant,
+                            ),
+                          ),
+                          child: _receiptImage != null
+                              ? Image.memory(
+                                  _receiptImage!,
+                                  fit: BoxFit.cover,
+                                )
+                              : widget.expense?.receiptImageId != null
+                                  ? Image.memory(
+                                      store.getReceiptImage(widget.expense!.receiptImageId)!,
+                                      fit: BoxFit.cover,
+                                    )
+                                  : null,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ],
               if (widget.isEditing)

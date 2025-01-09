@@ -7,11 +7,14 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../models/expense.dart';
 import '../models/category.dart';
 import '../models/profile.dart';
+import 'package:hive/hive.dart';
+import 'package:uuid/uuid.dart';
 
 class ExpenseStore extends ChangeNotifier {
   List<Expense> _expenses = [];
   List<ExpenseCategory> _categories = ExpenseCategory.defaultCategories;
   Profile _profile = Profile(name: 'User');
+  final _receiptBox = Hive.box('receipts');
 
   // Keys for SharedPreferences
   static const String _expensesKey = 'savedExpenses';
@@ -35,9 +38,23 @@ class ExpenseStore extends ChangeNotifier {
   }
 
   // CRUD Operations for Expenses
-  void addExpense(Expense expense) {
-    _expenses.add(expense);
-    synchronize();
+  Future<void> addExpense(Expense expense, {Uint8List? receiptImage}) async {
+    String? imageId;
+    if (receiptImage != null) {
+      imageId = await saveReceiptImage(receiptImage);
+    }
+
+    final newExpense = Expense(
+      id: const Uuid().v4(),
+      name: expense.name,
+      amount: expense.amount,
+      date: expense.date,
+      category: expense.category,
+      receiptImageId: imageId,
+    );
+
+    _expenses.add(newExpense);
+    await _saveExpenses();
     notifyListeners();
   }
 
@@ -95,18 +112,25 @@ class ExpenseStore extends ChangeNotifier {
     final prefs = await SharedPreferences.getInstance();
 
     try {
-      // Load expenses
-      final expensesJson = prefs.getString(_expensesKey);
-      if (expensesJson != null) {
-        final List<dynamic> decoded = jsonDecode(expensesJson);
-        _expenses = decoded.map((e) => Expense.fromJson(e)).toList();
-      }
-
-      // Load categories
+      // Load categories first since expenses depend on them
       final categoriesJson = prefs.getString(_categoriesKey);
       if (categoriesJson != null) {
         final List<dynamic> decoded = jsonDecode(categoriesJson);
         _categories = decoded.map((c) => ExpenseCategory.fromJson(c)).toList();
+      }
+
+      // Then load expenses with category references
+      final expensesJson = prefs.getString(_expensesKey);
+      if (expensesJson != null) {
+        final List<dynamic> decoded = jsonDecode(expensesJson);
+        _expenses = decoded.map((e) {
+          // Find the category for this expense
+          final category = _categories.firstWhere(
+            (c) => c.id == e['categoryId'],
+            orElse: () => _categories.first, // Fallback to first category if not found
+          );
+          return Expense.fromJson(e, category);
+        }).toList();
       }
 
       // Load profile
@@ -133,7 +157,7 @@ class ExpenseStore extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> saveExpenses() async {
+  Future<void> _saveExpenses() async {
     final prefs = await SharedPreferences.getInstance();
     try {
       final String encoded = jsonEncode(_expenses.map((e) => e.toJson()).toList());
@@ -208,7 +232,7 @@ class ExpenseStore extends ChangeNotifier {
   Future<void> synchronize() async {
     try {
       await Future.wait([
-        saveExpenses(),
+        _saveExpenses(),
         saveCategories(),
         saveProfile(),
       ]);
@@ -246,34 +270,15 @@ class ExpenseStore extends ChangeNotifier {
   }
 
   // Receipt image handling
-  Future<void> saveReceiptImage(Uint8List imageData, String expenseId) async {
-    try {
-      final directory = await getApplicationDocumentsDirectory();
-      final receiptsFolder = Directory('${directory.path}/receipts');
-      
-      if (!await receiptsFolder.exists()) {
-        await receiptsFolder.create(recursive: true);
-      }
-
-      final file = File('${receiptsFolder.path}/$expenseId.jpg');
-      await file.writeAsBytes(imageData);
-    } catch (e) {
-      debugPrint('Error saving receipt image: $e');
-    }
+  Future<String> saveReceiptImage(Uint8List imageData) async {
+    final imageId = const Uuid().v4();
+    await _receiptBox.put(imageId, imageData);
+    return imageId;
   }
 
-  Future<Uint8List?> getReceiptImage(String expenseId) async {
-    try {
-      final directory = await getApplicationDocumentsDirectory();
-      final file = File('${directory.path}/receipts/$expenseId.jpg');
-      
-      if (await file.exists()) {
-        return await file.readAsBytes();
-      }
-    } catch (e) {
-      debugPrint('Error loading receipt image: $e');
-    }
-    return null;
+  Uint8List? getReceiptImage(String? imageId) {
+    if (imageId == null) return null;
+    return _receiptBox.get(imageId);
   }
 
   void updateAllExpenses(List<Expense> newExpenses) {

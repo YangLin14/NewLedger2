@@ -1,11 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:hive_flutter/hive_flutter.dart';
 import 'providers/expense_store.dart';
 import 'services/currency_service.dart';
 import 'views/splash_view.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await Hive.initFlutter();
+  await Hive.openBox('expenses');
+  await Hive.openBox('categories');
+  await Hive.openBox('receipts');
   
   // Initialize stores
   final expenseStore = ExpenseStore();

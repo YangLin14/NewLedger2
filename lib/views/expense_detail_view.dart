@@ -5,8 +5,9 @@ import '../models/expense.dart';
 import '../providers/expense_store.dart';
 import 'add_expense_view.dart';
 import 'zoomable_image_view.dart';
+import 'package:intl/intl.dart';
 
-class ExpenseDetailView extends StatefulWidget {
+class ExpenseDetailView extends StatelessWidget {
   final Expense expense;
 
   const ExpenseDetailView({
@@ -15,59 +16,44 @@ class ExpenseDetailView extends StatefulWidget {
   }) : super(key: key);
 
   @override
-  State<ExpenseDetailView> createState() => _ExpenseDetailViewState();
-}
-
-class _ExpenseDetailViewState extends State<ExpenseDetailView> {
-  Uint8List? _imageData;
-
-  @override
-  void initState() {
-    super.initState();
-    _loadReceiptImage();
-  }
-
-  Future<void> _loadReceiptImage() async {
-    final store = Provider.of<ExpenseStore>(context, listen: false);
-    final imageData = await store.getReceiptImage(widget.expense.id);
-    if (imageData != null) {
-      setState(() {
-        _imageData = imageData;
-      });
-    }
-  }
-
-  @override
   Widget build(BuildContext context) {
     final store = Provider.of<ExpenseStore>(context);
+    final receiptImage = expense.receiptImageId != null 
+        ? store.getReceiptImage(expense.receiptImageId)
+        : null;
 
     return Scaffold(
       appBar: AppBar(
         title: const Text('Expense Details'),
         actions: [
-          TextButton(
+          IconButton(
+            icon: const Icon(Icons.edit),
             onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => AddExpenseView(
-                    expense: widget.expense,
-                    isEditing: true,
-                    onClose: () {
-                      Navigator.pop(context); // Close AddExpenseView
-                      Navigator.pop(context); // Close ExpenseDetailView
-                    },
+              showModalBottomSheet(
+                context: context,
+                isScrollControlled: true,
+                useSafeArea: true,
+                builder: (context) => FractionallySizedBox(
+                  heightFactor: 0.92,
+                  child: Padding(
+                    padding: EdgeInsets.only(
+                      bottom: MediaQuery.of(context).viewInsets.bottom,
+                    ),
+                    child: AddExpenseView(
+                      expense: expense,
+                      isEditing: true,
+                      onClose: () => Navigator.pop(context),
+                    ),
                   ),
                 ),
               );
             },
-            child: const Text('Edit'),
           ),
         ],
       ),
       body: SingleChildScrollView(
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // Expense Details Card
             Card(
@@ -77,92 +63,92 @@ class _ExpenseDetailViewState extends State<ExpenseDetailView> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    Text(
+                      expense.name,
+                      style: Theme.of(context).textTheme.headlineSmall,
+                    ),
+                    const SizedBox(height: 8),
                     Row(
                       children: [
                         Text(
-                          widget.expense.category.emoji,
-                          style: const TextStyle(fontSize: 40),
+                          expense.category.emoji,
+                          style: const TextStyle(fontSize: 20),
                         ),
-                        const SizedBox(width: 16),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                widget.expense.name,
-                                style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                              Text(
-                                widget.expense.category.name,
-                                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                  color: Colors.grey,
-                                ),
-                              ),
-                            ],
+                        const SizedBox(width: 8),
+                        Text(
+                          expense.category.name,
+                          style: Theme.of(context).textTheme.titleMedium,
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      '${store.profile.currency.symbol}${expense.amount.toStringAsFixed(2)}',
+                      style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                        color: Theme.of(context).colorScheme.primary,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      DateFormat('EEEE, MMMM d, y').format(expense.date),
+                      style: Theme.of(context).textTheme.bodyMedium,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+
+            // Receipt Image Section
+            if (receiptImage != null) ...[
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Text(
+                  'Receipt',
+                  style: Theme.of(context).textTheme.titleLarge,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Card(
+                margin: const EdgeInsets.all(16),
+                child: InkWell(
+                  onTap: () {
+                    // Show full screen receipt
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => Scaffold(
+                          appBar: AppBar(
+                            title: const Text('Receipt'),
+                          ),
+                          body: Center(
+                            child: InteractiveViewer(
+                              minScale: 0.5,
+                              maxScale: 4.0,
+                              child: Image.memory(receiptImage),
+                            ),
                           ),
                         ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-            ),
-
-            // Amount and Date Card
-            Card(
-              margin: const EdgeInsets.symmetric(horizontal: 16),
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        const Text('Amount'),
-                        Text(
-                          '${store.profile.currency.symbol}${widget.expense.amount.toStringAsFixed(2)}',
-                          style: const TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                    );
+                  },
+                  child: Column(
+                    children: [
+                      AspectRatio(
+                        aspectRatio: 2/3,
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(12),
+                          child: Image.memory(
+                            receiptImage,
+                            fit: BoxFit.cover,
+                          ),
                         ),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        const Text('Date'),
-                        Text(
-                          _formatDate(widget.expense.date),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-            ),
-
-            // Receipt Image
-            if (_imageData != null) ...[
-              const SizedBox(height: 16),
-              GestureDetector(
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => ZoomableImageView(imageData: _imageData!),
-                    ),
-                  );
-                },
-                child: Card(
-                  margin: const EdgeInsets.all(16),
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(8),
-                    child: Image.memory(
-                      _imageData!,
-                      fit: BoxFit.cover,
-                      height: 300,
-                    ),
+                      ),
+                      const Padding(
+                        padding: EdgeInsets.all(8.0),
+                        child: Text('Tap to view full receipt'),
+                      ),
+                    ],
                   ),
                 ),
               ),
@@ -171,11 +157,6 @@ class _ExpenseDetailViewState extends State<ExpenseDetailView> {
         ),
       ),
     );
-  }
-
-  String _formatDate(DateTime date) {
-    return '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')} '
-        '${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';
   }
 }
 

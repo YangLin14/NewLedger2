@@ -5,6 +5,53 @@ import '../providers/expense_store.dart';
 import '../services/currency_service.dart';
 import 'content_view.dart';
 
+class SparkleAnimation extends StatelessWidget {
+  final double size;
+  final Color color;
+  final Duration duration;
+  final Curve curve;
+
+  const SparkleAnimation({
+    Key? key,
+    this.size = 12.0,
+    this.color = Colors.white,
+    this.duration = const Duration(milliseconds: 1500),
+    this.curve = Curves.easeInOut,
+  }) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return TweenAnimationBuilder(
+      tween: Tween<double>(begin: 0, end: 1),
+      duration: duration,
+      curve: curve,
+      builder: (context, double value, child) {
+        return Transform.scale(
+          scale: sin(value * pi) * 1.2,
+          child: Opacity(
+            opacity: sin(value * pi),
+            child: Container(
+              width: size,
+              height: size,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: color.withOpacity(0.8),
+                boxShadow: [
+                  BoxShadow(
+                    color: color.withOpacity(0.5),
+                    spreadRadius: 2,
+                    blurRadius: 6,
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
 class SplashView extends StatefulWidget {
   const SplashView({super.key});
 
@@ -176,8 +223,8 @@ class _SplashViewState extends State<SplashView> with TickerProviderStateMixin {
                                 _sparkleSpinAnimation.value,
                               );
                               return Positioned(
-                                left: position.dx + 180,
-                                top: position.dy + 180,
+                                left: position.dx + 171.5,
+                                top: position.dy + 171.5,
                                 child: Transform.rotate(
                                   angle: _sparkleRotationController.value * 2 * pi,
                                   child: Transform.scale(
@@ -185,7 +232,7 @@ class _SplashViewState extends State<SplashView> with TickerProviderStateMixin {
                                     child: Icon(
                                       Icons.star,
                                       color: Colors.white.withOpacity(0.8),
-                                      size: 14,
+                                      size: 17,
                                     ),
                                   ),
                                 ),
@@ -219,7 +266,7 @@ class _SplashViewState extends State<SplashView> with TickerProviderStateMixin {
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          'YuYu',
+                          '@YuYu',
                           style: TextStyle(
                             fontSize: 18,
                             fontWeight: FontWeight.w600,

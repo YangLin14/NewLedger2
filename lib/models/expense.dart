@@ -4,19 +4,21 @@ import 'package:uuid/uuid.dart';
 import 'category.dart';
 
 class Expense {
-  final String id;
+  final String? id;
   final String name;
   final double amount;
   final DateTime date;
   final ExpenseCategory category;
+  final String? receiptImageId;
 
   Expense({
-    String? id,
+    this.id,
     required this.name,
     required this.amount,
     required this.date,
     required this.category,
-  }) : id = id ?? const Uuid().v4();
+    this.receiptImageId,
+  });
 
   // For JSON serialization
   Map<String, dynamic> toJson() => {
@@ -24,16 +26,18 @@ class Expense {
         'name': name,
         'amount': amount,
         'date': date.toIso8601String(),
-        'category': category.toJson(),
+        'categoryId': category.id,
+        'receiptImageId': receiptImageId,
       };
 
   // From JSON constructor
-  factory Expense.fromJson(Map<String, dynamic> json) => Expense(
+  factory Expense.fromJson(Map<String, dynamic> json, ExpenseCategory category) => Expense(
         id: json['id'],
         name: json['name'],
         amount: json['amount'],
         date: DateTime.parse(json['date']),
-        category: ExpenseCategory.fromJson(json['category']),
+        category: category,
+        receiptImageId: json['receiptImageId'],
       );
 
   // Get receipt image path

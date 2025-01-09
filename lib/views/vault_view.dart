@@ -666,16 +666,35 @@ class _VaultViewState extends State<VaultView> {
                         );
                       } else {
                         // Show categories when not searching
-                        final allCategories = store.categories;
-                        if (index >= allCategories.length) return null;
+                        final categoriesToShow = _selectedPeriod == TimePeriod.daily
+                          ? store.categories.where((category) {
+                              return store.expenses.any((expense) => 
+                                expense.category == category && 
+                                expense.date.year == _selectedDate.year &&
+                                expense.date.month == _selectedDate.month &&
+                                expense.date.day == _selectedDate.day
+                              );
+                            }).toList()
+                          : store.categories;
 
-                        final category = allCategories[index];
-                        // Get expenses for this category
-                        final expenses = _filteredExpenses.where(
-                          (expense) => expense.category.id == category.id
+                        if (index >= categoriesToShow.length) return null;
+
+                        final category = categoriesToShow[index];
+                        final expenses = store.expenses.where((e) => 
+                          e.category == category &&
+                          switch (_selectedPeriod) {
+                            TimePeriod.daily => 
+                              e.date.year == _selectedDate.year &&
+                              e.date.month == _selectedDate.month &&
+                              e.date.day == _selectedDate.day,
+                            TimePeriod.monthly =>
+                              e.date.year == _selectedDate.year &&
+                              e.date.month == _selectedDate.month,
+                            TimePeriod.yearly =>
+                              e.date.year == _selectedDate.year,
+                          }
                         ).toList();
-                        
-                        final total = expenses.fold(0.0, (sum, expense) => sum + expense.amount);
+                        final total = expenses.fold(0.0, (sum, e) => sum + e.amount);
 
                         return Card(
                           margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
