@@ -172,9 +172,11 @@ class _ProfileViewState extends State<ProfileView> {
       body: CustomScrollView(
         slivers: [
           SliverAppBar(
-            expandedHeight: 200,
+            expandedHeight: 250,
+            toolbarHeight: 80,
             pinned: true,
             flexibleSpace: FlexibleSpaceBar(
+              titlePadding: const EdgeInsets.only(left: 16, bottom: 20),
               background: Stack(
                 fit: StackFit.expand,
                 children: [
@@ -262,18 +264,24 @@ class _ProfileViewState extends State<ProfileView> {
                                       style: TextStyle(color: Colors.white70),
                                     ),
                                     onPressed: () {
-                                      showModalBottomSheet(
+                                      showDialog(
                                         context: context,
-                                        isScrollControlled: true, // Makes the modal take full height
-                                        builder: (context) => Padding(
-                                          padding: EdgeInsets.only(
-                                            bottom: MediaQuery.of(context).viewInsets.bottom,
+                                        barrierDismissible: true,
+                                        builder: (context) => Dialog(
+                                          shape: RoundedRectangleBorder(
+                                            borderRadius: BorderRadius.circular(16),
                                           ),
-                                          child: ProfileEditSheet(
-                                            onClose: () {
-                                              Navigator.pop(context);
-                                              setState(() {}); // Refresh the view after edit
-                                            },
+                                          child: ConstrainedBox(
+                                            constraints: BoxConstraints(
+                                              maxWidth: 400,
+                                              maxHeight: MediaQuery.of(context).size.height * 0.8,
+                                            ),
+                                            child: ProfileEditSheet(
+                                              onClose: () {
+                                                Navigator.pop(context);
+                                                setState(() {}); // Refresh the view after edit
+                                              },
+                                            ),
                                           ),
                                         ),
                                       );
@@ -321,6 +329,67 @@ class _ProfileViewState extends State<ProfileView> {
                   if (mounted) {
                     setState(() {});
                   }
+                },
+              ),
+              ListTile(
+                leading: Icon(store.themeMode == ThemeMode.dark 
+                  ? Icons.dark_mode 
+                  : store.themeMode == ThemeMode.light
+                    ? Icons.light_mode
+                    : Icons.brightness_auto),
+                title: const Text('Theme'),
+                subtitle: Text(
+                  store.themeMode == ThemeMode.system
+                    ? 'System default'
+                    : store.themeMode == ThemeMode.light
+                      ? 'Light mode'
+                      : 'Dark mode'
+                ),
+                onTap: () {
+                  showDialog(
+                    context: context,
+                    builder: (context) => AlertDialog(
+                      title: const Text('Choose Theme'),
+                      content: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          RadioListTile<ThemeMode>(
+                            title: const Text('System'),
+                            value: ThemeMode.system,
+                            groupValue: store.themeMode,
+                            onChanged: (ThemeMode? value) {
+                              if (value != null) {
+                                store.setThemeMode(value);
+                                Navigator.pop(context);
+                              }
+                            },
+                          ),
+                          RadioListTile<ThemeMode>(
+                            title: const Text('Light'),
+                            value: ThemeMode.light,
+                            groupValue: store.themeMode,
+                            onChanged: (ThemeMode? value) {
+                              if (value != null) {
+                                store.setThemeMode(value);
+                                Navigator.pop(context);
+                              }
+                            },
+                          ),
+                          RadioListTile<ThemeMode>(
+                            title: const Text('Dark'),
+                            value: ThemeMode.dark,
+                            groupValue: store.themeMode,
+                            onChanged: (ThemeMode? value) {
+                              if (value != null) {
+                                store.setThemeMode(value);
+                                Navigator.pop(context);
+                              }
+                            },
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
                 },
               ),
               const Divider(),

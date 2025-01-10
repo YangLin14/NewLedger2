@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/expense.dart';
@@ -26,6 +27,21 @@ class ExpenseStore extends ChangeNotifier {
   List<ExpenseCategory> get categories => _categories;
   Profile get profile => _profile;
 
+  // Add theme mode property
+  ThemeMode _themeMode = ThemeMode.system;
+  
+  ThemeMode get themeMode => _themeMode;
+
+  // Add a map to store the last payer for each category
+  final Map<String, String> _lastPayers = {};
+
+  // Add getter and setter for last payer
+  String? getLastPayer(String categoryId) => _lastPayers[categoryId];
+  
+  void setLastPayer(String categoryId, String payerId) {
+    _lastPayers[categoryId] = payerId;
+  }
+
   ExpenseStore() {
     init();
   }
@@ -44,6 +60,7 @@ class ExpenseStore extends ChangeNotifier {
       imageId = await saveReceiptImage(receiptImage);
     }
 
+    // Create the new expense with payment info if category has collaborators
     final newExpense = Expense(
       id: const Uuid().v4(),
       name: expense.name,
@@ -51,11 +68,17 @@ class ExpenseStore extends ChangeNotifier {
       date: expense.date,
       category: expense.category,
       receiptImageId: imageId,
+      payment: expense.payment, // Make sure to include the payment info
     );
 
     _expenses.add(newExpense);
     await _saveExpenses();
     notifyListeners();
+
+    // Update last payer if there's a payment
+    if (expense.payment != null) {
+      setLastPayer(expense.category.id, expense.payment!.payerId);
+    }
   }
 
   void deleteExpense(Expense expense) {
@@ -91,6 +114,14 @@ class ExpenseStore extends ChangeNotifier {
     final index = _categories.indexWhere((c) => c.id == category.id);
     if (index != -1) {
       _categories[index] = category;
+      
+      // Recalculate splits for all expenses in this category
+      for (var expense in _expenses.where((e) => e.category.id == category.id)) {
+        if (expense.payment != null && expense.payment!.isEqualSplit) {
+          expense.payment!.recalculateEqualSplits(category.collaborators);
+        }
+      }
+      
       synchronize();
       notifyListeners();
     }
@@ -122,15 +153,8 @@ class ExpenseStore extends ChangeNotifier {
       // Then load expenses with category references
       final expensesJson = prefs.getString(_expensesKey);
       if (expensesJson != null) {
-        final List<dynamic> decoded = jsonDecode(expensesJson);
-        _expenses = decoded.map((e) {
-          // Find the category for this expense
-          final category = _categories.firstWhere(
-            (c) => c.id == e['categoryId'],
-            orElse: () => _categories.first, // Fallback to first category if not found
-          );
-          return Expense.fromJson(e, category);
-        }).toList();
+        final List<dynamic> expensesList = jsonDecode(expensesJson);
+        _expenses = expensesList.map((e) => Expense.fromJson(e)).toList();
       }
 
       // Load profile
@@ -150,6 +174,14 @@ class ExpenseStore extends ChangeNotifier {
           _profile.backgroundImageData = await backgroundImageFile.readAsBytes();
         }
       }
+
+      // Load theme preference
+      final themeModeString = prefs.getString('themeMode') ?? 'system';
+      _themeMode = ThemeMode.values.firstWhere(
+        (mode) => mode.toString() == 'ThemeMode.$themeModeString',
+        orElse: () => ThemeMode.system,
+      );
+      
     } catch (e) {
       debugPrint('Error loading data: $e');
       resetToDefault();
@@ -284,6 +316,13 @@ class ExpenseStore extends ChangeNotifier {
   void updateAllExpenses(List<Expense> newExpenses) {
     _expenses = newExpenses;
     synchronize();
+    notifyListeners();
+  }
+
+  Future<void> setThemeMode(ThemeMode mode) async {
+    _themeMode = mode;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('themeMode', mode.name);
     notifyListeners();
   }
 } 

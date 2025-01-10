@@ -3,8 +3,10 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../models/expense.dart';
 import '../models/category.dart';
+import '../models/payment.dart';
 import '../providers/expense_store.dart';
 import '../services/receipt_scanner_service.dart';
+import 'package:uuid/uuid.dart';
 
 enum ExpenseFrequency {
   once,
@@ -40,12 +42,14 @@ class AddExpenseView extends StatefulWidget {
   final Expense? expense;
   final bool isEditing;
   final VoidCallback onClose;
+  final ExpenseCategory? initialCategory;
 
   const AddExpenseView({
     Key? key,
     this.expense,
     this.isEditing = false,
     required this.onClose,
+    this.initialCategory,
   }) : super(key: key);
 
   @override
@@ -62,6 +66,9 @@ class _AddExpenseViewState extends State<AddExpenseView> {
   late ExpenseFrequency _selectedFrequency = ExpenseFrequency.once;
   final _receiptScanner = ReceiptScannerService();
   Uint8List? _receiptImage;
+  String? _selectedPayer;
+  bool _splitEqually = true;
+  Map<String, double> _customSplits = {};
 
   @override
   void initState() {
@@ -71,8 +78,24 @@ class _AddExpenseViewState extends State<AddExpenseView> {
       text: widget.expense?.amount.toString() ?? '',
     );
     _selectedDate = widget.expense?.date ?? DateTime.now();
-    _selectedCategory = widget.isEditing ? widget.expense?.category : null;
+    _selectedCategory = widget.isEditing ? widget.expense?.category : widget.initialCategory;
     
+    // Initialize selected payer and splits
+    if (widget.isEditing) {
+      _selectedPayer = widget.expense?.payment?.payerId;
+      _customSplits = widget.expense?.payment?.splits ?? {};
+    } else if (widget.initialCategory != null) {
+      // Set default payer to 'me' for new expenses
+      _selectedPayer = 'me';
+      // Initialize splits if amount is already set
+      if (_amountController.text.isNotEmpty) {
+        _updateSplits();
+      }
+    }
+
+    // Add listener to amount controller
+    _amountController.addListener(_updateSplits);
+
     // Load existing receipt if editing
     if (widget.isEditing && widget.expense?.receiptImageId != null) {
       final store = Provider.of<ExpenseStore>(context, listen: false);
@@ -85,8 +108,9 @@ class _AddExpenseViewState extends State<AddExpenseView> {
 
   @override
   void dispose() {
-    _nameController.dispose();
+    _amountController.removeListener(_updateSplits);
     _amountController.dispose();
+    _nameController.dispose();
     super.dispose();
   }
 
@@ -99,54 +123,41 @@ class _AddExpenseViewState extends State<AddExpenseView> {
       return;
     }
 
-    final store = Provider.of<ExpenseStore>(context, listen: false);
+    final amount = double.parse(_amountController.text);
+    
+    // Create payment object if there are collaborators
+    Payment? payment;
+    if (_selectedCategory!.collaborators.isNotEmpty) {
+      // Ensure splits are calculated
+      if (_customSplits.isEmpty) {
+        _updateSplits();
+      }
+      
+      payment = Payment(
+        payerId: _selectedPayer ?? 'me',
+        amount: amount,
+        splits: Map<String, double>.from(_customSplits),
+      );
+    }
+
     final baseExpense = Expense(
-      id: widget.expense?.id,
+      id: widget.expense?.id ?? const Uuid().v4(),
       name: _nameController.text,
-      amount: double.parse(_amountController.text),
+      amount: amount,
       date: _selectedDate,
       category: _selectedCategory!,
+      payment: payment,
+      receiptImageId: widget.expense?.receiptImageId,
     );
 
+    final store = Provider.of<ExpenseStore>(context, listen: false);
+    
     if (widget.isEditing) {
       store.updateExpense(baseExpense);
     } else {
-      switch (_selectedFrequency) {
-        case ExpenseFrequency.once:
-          store.addExpense(baseExpense, receiptImage: _receiptImage);
-          break;
-        case ExpenseFrequency.monthly:
-          for (int i = 0; i < 12; i++) {
-            store.addExpense(
-              Expense(
-                name: baseExpense.name,
-                amount: baseExpense.amount,
-                date: DateTime(
-                  baseExpense.date.year,
-                  baseExpense.date.month + i,
-                  baseExpense.date.day,
-                ),
-                category: baseExpense.category,
-              ),
-            );
-          }
-          break;
-        case ExpenseFrequency.yearly:
-          for (int i = 0; i < 5; i++) {
-            store.addExpense(
-              Expense(
-                name: baseExpense.name,
-                amount: baseExpense.amount,
-                date: DateTime(
-                  baseExpense.date.year + i,
-                  baseExpense.date.month,
-                  baseExpense.date.day,
-                ),
-                category: baseExpense.category,
-              ),
-            );
-          }
-          break;
+      store.addExpense(baseExpense, receiptImage: _receiptImage);
+      if (payment != null) {
+        store.setLastPayer(_selectedCategory!.id, payment.payerId);
       }
     }
 
@@ -156,6 +167,7 @@ class _AddExpenseViewState extends State<AddExpenseView> {
   void _showAddCategoryDialog() {
     final TextEditingController nameController = TextEditingController();
     final TextEditingController emojiController = TextEditingController();
+    List<String> collaborators = [];
 
     showDialog(
       context: context,
@@ -184,6 +196,56 @@ class _AddExpenseViewState extends State<AddExpenseView> {
                 ),
                 maxLength: 2,
               ),
+              const SizedBox(height: 16),
+              StatefulBuilder(
+                builder: (context, setState) {
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            'Collaborators',
+                            style: Theme.of(context).textTheme.titleSmall,
+                          ),
+                          TextButton.icon(
+                            icon: const Icon(Icons.add),
+                            label: const Text('Add'),
+                            onPressed: () async {
+                              final email = await showDialog<String>(
+                                context: context,
+                                builder: (context) => _AddCollaboratorDialog(),
+                              );
+                              if (email != null && email.isNotEmpty) {
+                                setState(() {
+                                  collaborators.add(email);
+                                });
+                              }
+                            },
+                          ),
+                        ],
+                      ),
+                      if (collaborators.isNotEmpty) ...[
+                        const SizedBox(height: 8),
+                        ...collaborators.map((email) => ListTile(
+                          dense: true,
+                          title: Text(email),
+                          trailing: IconButton(
+                            icon: const Icon(Icons.remove_circle_outline),
+                            onPressed: () {
+                              setState(() {
+                                collaborators.remove(email);
+                              });
+                            },
+                            color: Theme.of(context).colorScheme.error,
+                          ),
+                        )).toList(),
+                      ],
+                    ],
+                  );
+                },
+              ),
             ],
           ),
           actions: [
@@ -202,8 +264,10 @@ class _AddExpenseViewState extends State<AddExpenseView> {
 
                 final store = Provider.of<ExpenseStore>(context, listen: false);
                 final newCategory = ExpenseCategory(
+                  id: const Uuid().v4(),
                   name: nameController.text.trim(),
                   emoji: emojiController.text.trim().isEmpty ? '📍' : emojiController.text.trim(),
+                  collaborators: collaborators,
                 );
                 
                 store.addCategory(newCategory);
@@ -241,6 +305,131 @@ class _AddExpenseViewState extends State<AddExpenseView> {
     }
   }
 
+  Widget _buildSplitSection(BuildContext context, ExpenseStore store) {
+    if (_selectedCategory == null || _selectedCategory!.collaborators.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    // Initialize splits if empty
+    if (_customSplits.isEmpty && _amountController.text.isNotEmpty) {
+      _updateSplits();
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Divider(height: 32),
+        Text(
+          'Split Details',
+          style: Theme.of(context).textTheme.titleMedium,
+        ),
+        const SizedBox(height: 16),
+        DropdownButtonFormField<String>(
+          value: _selectedPayer,
+          decoration: const InputDecoration(
+            labelText: 'Paid by',
+            border: OutlineInputBorder(),
+          ),
+          items: [
+            const DropdownMenuItem(
+              value: 'me',
+              child: Text('Me'),
+            ),
+            ..._selectedCategory!.collaborators.map((collaborator) {
+              return DropdownMenuItem(
+                value: collaborator,
+                child: Text(collaborator),
+              );
+            }),
+          ],
+          onChanged: (value) {
+            setState(() {
+              _selectedPayer = value;
+              // Recalculate splits with new payer
+              _updateSplits();
+            });
+          },
+          validator: (value) {
+            if (value == null) {
+              return 'Please select who paid';
+            }
+            return null;
+          },
+        ),
+        const SizedBox(height: 16),
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                'Split equally',
+                style: Theme.of(context).textTheme.titleSmall,
+              ),
+            ),
+            Switch(
+              value: _splitEqually,
+              onChanged: (value) {
+                setState(() {
+                  _splitEqually = value;
+                  _updateSplits();
+                });
+              },
+            ),
+          ],
+        ),
+        if (!_splitEqually) ...[
+          const SizedBox(height: 16),
+          ...['me', ..._selectedCategory!.collaborators].map((person) {
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: TextFormField(
+                initialValue: _customSplits[person]?.toString() ?? '0',
+                decoration: InputDecoration(
+                  labelText: person == 'me' ? 'My share' : '$person\'s share',
+                  border: const OutlineInputBorder(),
+                  prefixText: store.profile.currency.symbol,
+                ),
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                inputFormatters: [
+                  FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d{0,2}')),
+                ],
+                onChanged: (value) {
+                  final amount = double.tryParse(value) ?? 0;
+                  setState(() {
+                    _customSplits[person] = amount;
+                  });
+                },
+              ),
+            );
+          }).toList(),
+        ],
+      ],
+    );
+  }
+
+  void _updateSplits() {
+    final amount = double.tryParse(_amountController.text) ?? 0;
+    if (amount <= 0) return;
+
+    setState(() {
+      if (_splitEqually) {
+        final totalPeople = _selectedCategory!.collaborators.length + 1;
+        
+        if (_selectedPayer == null) {
+          _selectedPayer = 'me';  // Default to 'me' if not set
+        }
+
+        // Calculate split amount excluding the payer
+        final splitAmount = amount / totalPeople;
+
+        // Initialize splits for everyone except the payer
+        _customSplits = {
+          for (final person in ['me', ..._selectedCategory!.collaborators])
+            person: person == _selectedPayer ? 0 : splitAmount
+        };
+      }
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final store = Provider.of<ExpenseStore>(context);
@@ -248,26 +437,29 @@ class _AddExpenseViewState extends State<AddExpenseView> {
     return Scaffold(
       backgroundColor: Colors.transparent,
       appBar: AppBar(
+        toolbarHeight: 80,
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(
+            top: Radius.circular(28),
+          ),
+        ),
         title: Text(widget.isEditing ? 'Edit Expense' : 'Add Expense'),
         leading: IconButton(
           icon: const Icon(Icons.close),
           onPressed: widget.onClose,
         ),
+        titleSpacing: 16,
         actions: [
           TextButton(
             onPressed: _saveExpense,
             child: const Text('Save'),
           ),
         ],
-        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-        shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(
-            top: Radius.circular(20),
-          ),
-        ),
       ),
       body: Container(
         color: Theme.of(context).scaffoldBackgroundColor,
+        padding: const EdgeInsets.only(top: 8),
         child: Form(
           key: _formKey,
           child: ListView(
@@ -303,6 +495,11 @@ class _AddExpenseViewState extends State<AddExpenseView> {
                 inputFormatters: [
                   FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d{0,2}')),
                 ],
+                onChanged: (value) {
+                  if (_selectedCategory?.collaborators.isNotEmpty == true) {
+                    _updateSplits();
+                  }
+                },
                 validator: (value) {
                   if (value == null || value.isEmpty) {
                     return 'Please enter an amount';
@@ -350,22 +547,38 @@ class _AddExpenseViewState extends State<AddExpenseView> {
                         labelText: 'Category',
                         border: OutlineInputBorder(),
                       ),
-                      hint: const Text('Select Category'),
-                      items: store.categories.map((category) {
-                        return DropdownMenuItem(
-                          value: category,
-                          child: Row(
-                            children: [
-                              Text(category.emoji),
-                              const SizedBox(width: 8),
-                              Text(category.name),
-                            ],
-                          ),
-                        );
-                      }).toList(),
+                      items: [
+                        ...store.categories.map((category) {
+                          return DropdownMenuItem<ExpenseCategory>(
+                            value: category,
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(
+                                  category.emoji,
+                                  style: const TextStyle(fontSize: 20),
+                                ),
+                                const SizedBox(width: 8),
+                                Text(category.name),
+                              ],
+                            ),
+                          );
+                        }).toList(),
+                      ],
                       onChanged: (ExpenseCategory? value) {
                         setState(() {
                           _selectedCategory = value;
+                          // Initialize splits and payer when category changes
+                          if (value?.collaborators.isNotEmpty == true) {
+                            _selectedPayer = 'me';
+                            _splitEqually = true;  // Reset to equal splits
+                            if (_amountController.text.isNotEmpty) {
+                              _updateSplits();
+                            }
+                          } else {
+                            _selectedPayer = null;
+                            _customSplits = {};
+                          }
                         });
                       },
                       validator: (value) {
@@ -491,25 +704,43 @@ class _AddExpenseViewState extends State<AddExpenseView> {
                   ),
                 ),
               ],
-              if (widget.isEditing)
-                Padding(
-                  padding: const EdgeInsets.only(top: 16),
-                  child: ElevatedButton(
-                    onPressed: () {
-                      store.deleteExpense(widget.expense!);
-                      widget.onClose();
-                    },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.red,
-                      foregroundColor: Colors.white,
-                    ),
-                    child: const Text('Delete Expense'),
-                  ),
-                ),
+              _buildSplitSection(context, store),
             ],
           ),
         ),
       ),
+    );
+  }
+}
+
+class _AddCollaboratorDialog extends StatelessWidget {
+  final _controller = TextEditingController();
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Add Collaborator'),
+      content: TextField(
+        controller: _controller,
+        decoration: const InputDecoration(
+          labelText: 'Name',
+          hintText: 'Enter collaborator name',
+          border: OutlineInputBorder(),
+        ),
+        textCapitalization: TextCapitalization.words,
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(
+          onPressed: () {
+            Navigator.pop(context, _controller.text.trim());
+          },
+          child: const Text('Add'),
+        ),
+      ],
     );
   }
 } 

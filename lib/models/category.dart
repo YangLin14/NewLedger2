@@ -4,18 +4,21 @@ class ExpenseCategory {
   final String id;
   final String name;
   final String emoji;
+  List<String> collaborators;
 
   ExpenseCategory({
-    String? id,
+    required this.id,
     required this.name,
     required this.emoji,
-  }) : id = id ?? const Uuid().v4();
+    List<String>? collaborators,
+  }) : collaborators = collaborators ?? [];
 
   // For JSON serialization
   Map<String, dynamic> toJson() => {
         'id': id,
         'name': name,
         'emoji': emoji,
+        'collaborators': collaborators,
       };
 
   // From JSON constructor
@@ -23,6 +26,7 @@ class ExpenseCategory {
         id: json['id'],
         name: json['name'],
         emoji: json['emoji'],
+        collaborators: List<String>.from(json['collaborators'] ?? []),
       );
 
   // For comparison
@@ -40,11 +44,35 @@ class ExpenseCategory {
 
   // Default categories
   static final List<ExpenseCategory> defaultCategories = [
-    ExpenseCategory(name: 'Food', emoji: '🍔'),
-    ExpenseCategory(name: 'Transport', emoji: '🚗'),
-    ExpenseCategory(name: 'Shopping', emoji: '🛍'),
-    ExpenseCategory(name: 'Entertainment', emoji: '🎮'),
-    ExpenseCategory(name: 'Bills', emoji: '📱'),
-    ExpenseCategory(name: 'Others', emoji: '📦'),
+    ExpenseCategory(
+      id: const Uuid().v4(),
+      name: 'Food', 
+      emoji: '🍔'
+    ),
+    ExpenseCategory(
+      id: const Uuid().v4(),
+      name: 'Transport', 
+      emoji: '🚗'
+    ),
+    ExpenseCategory(
+      id: const Uuid().v4(),
+      name: 'Shopping', 
+      emoji: '🛍'
+    ),
+    ExpenseCategory(
+      id: const Uuid().v4(),
+      name: 'Entertainment', 
+      emoji: '🎮'
+    ),
+    ExpenseCategory(
+      id: const Uuid().v4(),
+      name: 'Bills', 
+      emoji: '📱'
+    ),
+    ExpenseCategory(
+      id: const Uuid().v4(),
+      name: 'Others', 
+      emoji: '📦'
+    ),
   ];
 }

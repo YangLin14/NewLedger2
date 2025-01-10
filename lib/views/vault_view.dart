@@ -298,65 +298,110 @@ class _VaultViewState extends State<VaultView> {
         slivers: [
           SliverAppBar(
             title: _isSearching
-                ? TextField(
-                    autofocus: true,
-                    decoration: const InputDecoration(
-                      hintText: 'Search expenses...',
-                      border: InputBorder.none,
-                    ),
-                    onChanged: (value) {
-                      setState(() {
-                        _searchText = value;
-                      });
-                    },
-                  )
-                : const Text('NewLedger 🏦'),
-            leading: IconButton(
-              icon: const Icon(Icons.filter_list),
-              onPressed: () {
-                showModalBottomSheet(
-                  context: context,
-                  builder: (BuildContext bottomSheetContext) {
-                    return StatefulBuilder(
-                      builder: (BuildContext context, StateSetter setModalState) {
-                        return ListView(
-                          children: [
-                            ListTile(
-                              title: const Text('Filter by Category'),
-                              trailing: DropdownButton<ExpenseCategory?>(
-                                value: _selectedCategory,
-                                onChanged: (ExpenseCategory? newValue) {
-                                  setModalState(() {
-                                    _selectedCategory = newValue;
-                                  });
-                                  setState(() {
-                                    _selectedCategory = newValue;
-                                  });
-                                },
-                                items: [
-                                  const DropdownMenuItem<ExpenseCategory?>(
-                                    value: null,
-                                    child: Row(
-                                      children: [
-                                        Icon(Icons.all_inclusive, size: 20),
-                                        SizedBox(width: 8),
-                                        Text('All Categories'),
-                                      ],
+                  ? TextField(
+                      autofocus: true,
+                      decoration: const InputDecoration(
+                        hintText: 'Search expenses...',
+                        border: InputBorder.none,
+                      ),
+                      onChanged: (value) {
+                        setState(() {
+                          _searchText = value;
+                        });
+                      },
+                    )
+                  : const Text('NewLedger 🏦'),
+              leading: IconButton(
+                icon: const Icon(Icons.filter_list),
+                onPressed: () {
+                  showModalBottomSheet(
+                    context: context,
+                    builder: (BuildContext bottomSheetContext) {
+                      return StatefulBuilder(
+                        builder: (BuildContext context, StateSetter setModalState) {
+                          return ListView(
+                            children: [
+                              ListTile(
+                                title: const Text('Filter by Category'),
+                                trailing: DropdownButton<ExpenseCategory?>(
+                                  value: _selectedCategory,
+                                  onChanged: (ExpenseCategory? newValue) {
+                                    setModalState(() {
+                                      _selectedCategory = newValue;
+                                    });
+                                    setState(() {
+                                      _selectedCategory = newValue;
+                                    });
+                                  },
+                                  items: [
+                                    const DropdownMenuItem<ExpenseCategory?>(
+                                      value: null,
+                                      child: Row(
+                                        children: [
+                                          Icon(Icons.all_inclusive, size: 20),
+                                          SizedBox(width: 8),
+                                          Text('All Categories'),
+                                        ],
+                                      ),
                                     ),
+                                    ...store.categories.map((category) {
+                                      return DropdownMenuItem<ExpenseCategory>(
+                                        value: category,
+                                        child: Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            Text(
+                                              category.emoji,
+                                              style: const TextStyle(fontSize: 20),
+                                            ),
+                                            const SizedBox(width: 8),
+                                            Text(
+                                              category.name,
+                                              style: TextStyle(
+                                                color: Theme.of(context).colorScheme.onSurface,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      );
+                                    }).toList(),
+                                  ],
+                                  icon: const Icon(Icons.arrow_drop_down),
+                                  elevation: 4,
+                                  style: Theme.of(context).textTheme.bodyLarge,
+                                  dropdownColor: Theme.of(context).colorScheme.surface,
+                                  borderRadius: BorderRadius.circular(12),
+                                  underline: Container(
+                                    height: 2,
+                                    color: Theme.of(context).colorScheme.primary,
                                   ),
-                                  ...store.categories.map((category) {
-                                    return DropdownMenuItem<ExpenseCategory>(
-                                      value: category,
+                                ),
+                              ),
+                              ListTile(
+                                title: const Text('Filter by Period'),
+                                trailing: DropdownButton<TimePeriod>(
+                                  value: _selectedPeriod,
+                                  onChanged: (TimePeriod? newValue) {
+                                    setModalState(() {
+                                      _selectedPeriod = newValue!;
+                                    });
+                                    setState(() {
+                                      _selectedPeriod = newValue!;
+                                    });
+                                  },
+                                  items: TimePeriod.values.map((period) {
+                                    return DropdownMenuItem(
+                                      value: period,
                                       child: Row(
                                         mainAxisSize: MainAxisSize.min,
                                         children: [
-                                          Text(
-                                            category.emoji,
-                                            style: const TextStyle(fontSize: 20),
+                                          Icon(
+                                            _getPeriodIcon(period),
+                                            size: 20,
                                           ),
                                           const SizedBox(width: 8),
                                           Text(
-                                            category.name,
+                                            period.name,
                                             style: TextStyle(
                                               color: Theme.of(context).colorScheme.onSurface,
                                             ),
@@ -365,405 +410,361 @@ class _VaultViewState extends State<VaultView> {
                                       ),
                                     );
                                   }).toList(),
-                                ],
-                                icon: const Icon(Icons.arrow_drop_down),
-                                elevation: 4,
-                                style: Theme.of(context).textTheme.bodyLarge,
-                                dropdownColor: Theme.of(context).colorScheme.surface,
-                                borderRadius: BorderRadius.circular(12),
-                                underline: Container(
-                                  height: 2,
-                                  color: Theme.of(context).colorScheme.primary,
+                                  icon: const Icon(Icons.arrow_drop_down),
+                                  elevation: 4,
+                                  style: Theme.of(context).textTheme.bodyLarge,
+                                  dropdownColor: Theme.of(context).colorScheme.surface,
+                                  borderRadius: BorderRadius.circular(12),
+                                  underline: Container(
+                                    height: 2,
+                                    color: Theme.of(context).colorScheme.primary,
+                                  ),
                                 ),
                               ),
-                            ),
-                            ListTile(
-                              title: const Text('Filter by Period'),
-                              trailing: DropdownButton<TimePeriod>(
-                                value: _selectedPeriod,
-                                onChanged: (TimePeriod? newValue) {
-                                  setModalState(() {
-                                    _selectedPeriod = newValue!;
-                                  });
-                                  setState(() {
-                                    _selectedPeriod = newValue!;
-                                  });
-                                },
-                                items: TimePeriod.values.map((period) {
-                                  return DropdownMenuItem(
-                                    value: period,
-                                    child: Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        Icon(
-                                          _getPeriodIcon(period),
-                                          size: 20,
-                                        ),
-                                        const SizedBox(width: 8),
-                                        Text(
-                                          period.name,
-                                          style: TextStyle(
-                                            color: Theme.of(context).colorScheme.onSurface,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  );
-                                }).toList(),
-                                icon: const Icon(Icons.arrow_drop_down),
-                                elevation: 4,
-                                style: Theme.of(context).textTheme.bodyLarge,
-                                dropdownColor: Theme.of(context).colorScheme.surface,
-                                borderRadius: BorderRadius.circular(12),
-                                underline: Container(
-                                  height: 2,
-                                  color: Theme.of(context).colorScheme.primary,
-                                ),
-                              ),
-                            ),
-                          ],
-                        );
-                      },
-                    );
-                  },
-                );
-              },
-            ),
-            actions: [
-              if (!_isSearching)
-                IconButton(
-                  icon: const Icon(Icons.add),
-                  onPressed: () {
-                    showModalBottomSheet(
-                      context: context,
-                      isScrollControlled: true,
-                      backgroundColor: Colors.transparent,
-                      transitionAnimationController: AnimationController(
-                        duration: const Duration(milliseconds: 300),
-                        vsync: Navigator.of(context),
-                      ),
-                      builder: (context) => AnimatedContainer(
-                        duration: const Duration(milliseconds: 300),
-                        curve: Curves.easeInOut,
-                        child: Container(
-                          height: MediaQuery.of(context).size.height * 0.9,
-                          decoration: BoxDecoration(
-                            color: Theme.of(context).scaffoldBackgroundColor,
-                            borderRadius: const BorderRadius.vertical(
-                              top: Radius.circular(20),
-                            ),
-                          ),
-                          child: AddExpenseView(
-                            onClose: () => Navigator.pop(context),
-                          ),
-                        ),
-                      ),
-                    );
-                  },
-                ),
-              IconButton(
-                icon: const Icon(Icons.search),
-                onPressed: () {
-                  setState(() {
-                    _isSearching = !_isSearching;
-                    if (!_isSearching) {
-                      _searchText = '';
-                    }
-                  });
+                            ],
+                          );
+                        },
+                      );
+                    },
+                  );
                 },
               ),
-            ],
-            floating: true,
-            snap: true,
-            pinned: true,
-          ),
-          SliverToBoxAdapter(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                if (_searchText.isEmpty) ...[
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          _greetingMessage,
-                          style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                            fontWeight: FontWeight.bold,
-                            color: Theme.of(context).colorScheme.primary,
-                          ),
+              actions: [
+                if (!_isSearching)
+                  IconButton(
+                    icon: const Icon(Icons.add),
+                    onPressed: () {
+                      showModalBottomSheet(
+                        context: context,
+                        isScrollControlled: true,
+                        backgroundColor: Colors.transparent,
+                        transitionAnimationController: AnimationController(
+                          duration: const Duration(milliseconds: 300),
+                          vsync: Navigator.of(context),
                         ),
-                        const SizedBox(height: 8),
-                        Card(
-                          child: Padding(
-                            padding: const EdgeInsets.all(12),
-                            child: Column(
-                              children: [
-                                Row(
-                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                  children: [
-                                    Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          'Total Expenses',
-                                          style: Theme.of(context).textTheme.titleMedium,
-                                        ),
-                                        const SizedBox(height: 4),
-                                        Text(
-                                          '${store.profile.currency.symbol}${_totalExpenses.toStringAsFixed(2)}',
-                                          style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                                            fontWeight: FontWeight.bold,
-                                            color: Theme.of(context).colorScheme.primary,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                    Icon(
-                                      Icons.account_balance_wallet,
-                                      size: 40,
-                                      color: Theme.of(context).colorScheme.primary,
-                                    ),
-                                  ],
-                                ),
-                                const Divider(height: 24),
-                                Row(
-                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                  children: [
-                                    Text(
-                                      _formattedSelectedDate,
-                                      style: Theme.of(context).textTheme.bodyMedium,
-                                    ),
-                                    Row(
-                                      children: [
-                                        IconButton(
-                                          icon: const Icon(Icons.chevron_left),
-                                          onPressed: _previousPeriod,
-                                        ),
-                                        IconButton(
-                                          icon: const Icon(Icons.chevron_right),
-                                          onPressed: _nextPeriod,
-                                        ),
-                                      ],
-                                    ),
-                                  ],
-                                ),
-                              ],
+                        builder: (context) => AnimatedContainer(
+                          duration: const Duration(milliseconds: 300),
+                          curve: Curves.easeInOut,
+                          child: Container(
+                            height: MediaQuery.of(context).size.height * 0.9,
+                            decoration: BoxDecoration(
+                              color: Theme.of(context).scaffoldBackgroundColor,
+                              borderRadius: const BorderRadius.vertical(
+                                top: Radius.circular(20),
+                              ),
+                            ),
+                            child: AddExpenseView(
+                              onClose: () => Navigator.pop(context),
                             ),
                           ),
                         ),
-                        _buildBudgetStatusCard(store),
-                      ],
-                    ),
+                      );
+                    },
                   ),
-                  const SizedBox(height: 8),
-                  if (_filteredExpenses.isNotEmpty)
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-                      child: Text(
-                        'Categories',
-                        style: Theme.of(context).textTheme.titleLarge,
-                      ),
-                    ),
-                ] else ...[
-                  _buildSearchSummaryCard(store),
-                ],
+                IconButton(
+                  icon: const Icon(Icons.search),
+                  onPressed: () {
+                    setState(() {
+                      _isSearching = !_isSearching;
+                      if (!_isSearching) {
+                        _searchText = '';
+                      }
+                    });
+                  },
+                ),
               ],
+              floating: true,
+              snap: true,
+              pinned: true,
+              toolbarHeight: 80,
             ),
-          ),
-          _filteredExpenses.isEmpty
-              ? SliverToBoxAdapter(
-                  child: SizedBox(
-                    height: MediaQuery.of(context).size.height * 0.4,
-                    child: Center(
+            SliverToBoxAdapter(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (_searchText.isEmpty) ...[
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
                       child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Icon(
-                            Icons.receipt_long,
-                            size: 80,
-                            color: Theme.of(context).colorScheme.primary.withOpacity(0.5),
-                          ),
-                          const SizedBox(height: 16),
                           Text(
-                            'No expenses found',
-                            style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                            _greetingMessage,
+                            style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                              fontWeight: FontWeight.bold,
                               color: Theme.of(context).colorScheme.primary,
                             ),
                           ),
                           const SizedBox(height: 8),
-                          Text(
-                            'Tap the + button to add a new expense',
-                            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                              color: Theme.of(context).colorScheme.onSurfaceVariant,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                )
-              : SliverList(
-                  delegate: SliverChildBuilderDelegate(
-                    (context, index) {
-                      if (_searchText.isNotEmpty) {
-                        // Show expenses when searching
-                        if (index >= _filteredExpenses.length) return null;
-                        final expense = _filteredExpenses[index];
-                        
-                        return Card(
-                          margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                          child: ListTile(
-                            contentPadding: const EdgeInsets.all(16),
-                            leading: CircleAvatar(
-                              backgroundColor: Theme.of(context).colorScheme.primaryContainer,
-                              child: Text(
-                                expense.category.emoji,
-                                style: const TextStyle(fontSize: 20),
-                              ),
-                            ),
-                            title: Text(
-                              expense.name,
-                              style: const TextStyle(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 16,
-                              ),
-                            ),
-                            subtitle: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                const SizedBox(height: 4),
-                                Text(
-                                  DateFormat('EEEE, MMMM d, y').format(expense.date),
-                                  style: Theme.of(context).textTheme.bodySmall,
-                                ),
-                                Text(
-                                  expense.category.name,
-                                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                    color: Theme.of(context).colorScheme.primary,
-                                  ),
-                                ),
-                              ],
-                            ),
-                            trailing: Text(
-                              '${store.profile.currency.symbol}${expense.amount.toStringAsFixed(2)}',
-                              style: TextStyle(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 16,
-                                color: Theme.of(context).colorScheme.primary,
-                              ),
-                            ),
-                            onTap: () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (context) => ExpenseDetailView(expense: expense),
-                                ),
-                              );
-                            },
-                          ),
-                        );
-                      } else {
-                        // Show categories when not searching
-                        final categoriesToShow = _selectedPeriod == TimePeriod.daily
-                          ? store.categories.where((category) {
-                              return store.expenses.any((expense) => 
-                                expense.category == category && 
-                                expense.date.year == _selectedDate.year &&
-                                expense.date.month == _selectedDate.month &&
-                                expense.date.day == _selectedDate.day
-                              );
-                            }).toList()
-                          : store.categories;
-
-                        if (index >= categoriesToShow.length) return null;
-
-                        final category = categoriesToShow[index];
-                        final expenses = store.expenses.where((e) => 
-                          e.category == category &&
-                          switch (_selectedPeriod) {
-                            TimePeriod.daily => 
-                              e.date.year == _selectedDate.year &&
-                              e.date.month == _selectedDate.month &&
-                              e.date.day == _selectedDate.day,
-                            TimePeriod.monthly =>
-                              e.date.year == _selectedDate.year &&
-                              e.date.month == _selectedDate.month,
-                            TimePeriod.yearly =>
-                              e.date.year == _selectedDate.year,
-                          }
-                        ).toList();
-                        final total = expenses.fold(0.0, (sum, e) => sum + e.amount);
-
-                        return Card(
-                          margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                          child: InkWell(
-                            borderRadius: BorderRadius.circular(12),
-                            onTap: () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (context) => CategoryDetailView(
-                                    category: category,
-                                    expenses: expenses,
-                                    currencySymbol: store.profile.currency.symbol,
-                                  ),
-                                ),
-                              );
-                            },
+                          Card(
                             child: Padding(
-                              padding: const EdgeInsets.all(16),
-                              child: Row(
+                              padding: const EdgeInsets.all(12),
+                              child: Column(
                                 children: [
-                                  CircleAvatar(
-                                    backgroundColor: Theme.of(context).colorScheme.primaryContainer,
-                                    child: Text(
-                                      category.emoji,
-                                      style: const TextStyle(fontSize: 20),
-                                    ),
-                                  ),
-                                  const SizedBox(width: 16),
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          category.name,
-                                          style: const TextStyle(
-                                            fontWeight: FontWeight.bold,
-                                            fontSize: 16,
+                                  Row(
+                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            'Total Expenses',
+                                            style: Theme.of(context).textTheme.titleMedium,
                                           ),
-                                        ),
-                                        Text(
-                                          expenses.isEmpty 
-                                            ? 'No expenses' 
-                                            : '${expenses.length} expense${expenses.length == 1 ? '' : 's'}',
-                                          style: Theme.of(context).textTheme.bodySmall,
-                                        ),
-                                      ],
-                                    ),
+                                          const SizedBox(height: 4),
+                                          Text(
+                                            '${store.profile.currency.symbol}${_totalExpenses.toStringAsFixed(2)}',
+                                            style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                                              fontWeight: FontWeight.bold,
+                                              color: Theme.of(context).colorScheme.primary,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                      Icon(
+                                        Icons.account_balance_wallet,
+                                        size: 40,
+                                        color: Theme.of(context).colorScheme.primary,
+                                      ),
+                                    ],
                                   ),
-                                  Text(
-                                    '${store.profile.currency.symbol}${total.toStringAsFixed(2)}',
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 16,
-                                      color: Theme.of(context).colorScheme.primary,
-                                    ),
+                                  const Divider(height: 24),
+                                  Row(
+                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      Text(
+                                        _formattedSelectedDate,
+                                        style: Theme.of(context).textTheme.bodyMedium,
+                                      ),
+                                      Row(
+                                        children: [
+                                          IconButton(
+                                            icon: const Icon(Icons.chevron_left),
+                                            onPressed: _previousPeriod,
+                                          ),
+                                          IconButton(
+                                            icon: const Icon(Icons.chevron_right),
+                                            onPressed: _nextPeriod,
+                                          ),
+                                        ],
+                                      ),
+                                    ],
                                   ),
                                 ],
                               ),
                             ),
                           ),
-                        );
-                      }
-                    },
-                    childCount: _searchText.isNotEmpty 
-                        ? _filteredExpenses.length 
-                        : store.categories.length,
+                          _buildBudgetStatusCard(store),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    if (_filteredExpenses.isNotEmpty)
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+                        child: Text(
+                          'Categories',
+                          style: Theme.of(context).textTheme.titleLarge,
+                        ),
+                      ),
+                  ] else ...[
+                    _buildSearchSummaryCard(store),
+                  ],
+                ],
+              ),
+            ),
+            _filteredExpenses.isEmpty
+                ? SliverToBoxAdapter(
+                    child: SizedBox(
+                      height: MediaQuery.of(context).size.height * 0.4,
+                      child: Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              Icons.receipt_long,
+                              size: 80,
+                              color: Theme.of(context).colorScheme.primary.withOpacity(0.5),
+                            ),
+                            const SizedBox(height: 16),
+                            Text(
+                              'No expenses found',
+                              style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                                color: Theme.of(context).colorScheme.primary,
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              'Tap the + button to add a new expense',
+                              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                color: Theme.of(context).colorScheme.onSurfaceVariant,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  )
+                : SliverList(
+                    delegate: SliverChildBuilderDelegate(
+                      (context, index) {
+                        if (_searchText.isNotEmpty) {
+                          // Show expenses when searching
+                          if (index >= _filteredExpenses.length) return null;
+                          final expense = _filteredExpenses[index];
+                          
+                          return Card(
+                            margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                            child: ListTile(
+                              contentPadding: const EdgeInsets.all(16),
+                              leading: CircleAvatar(
+                                backgroundColor: Theme.of(context).colorScheme.primaryContainer,
+                                child: Text(
+                                  expense.category.emoji,
+                                  style: const TextStyle(fontSize: 20),
+                                ),
+                              ),
+                              title: Text(
+                                expense.name,
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 16,
+                                ),
+                              ),
+                              subtitle: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    DateFormat('EEEE, MMMM d, y').format(expense.date),
+                                    style: Theme.of(context).textTheme.bodySmall,
+                                  ),
+                                  Text(
+                                    expense.category.name,
+                                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                      color: Theme.of(context).colorScheme.primary,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              trailing: Text(
+                                '${store.profile.currency.symbol}${expense.amount.toStringAsFixed(2)}',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 16,
+                                  color: Theme.of(context).colorScheme.primary,
+                                ),
+                              ),
+                              onTap: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => ExpenseDetailView(expense: expense),
+                                  ),
+                                );
+                              },
+                            ),
+                          );
+                        } else {
+                          // Show categories when not searching
+                          final categoriesToShow = _selectedPeriod == TimePeriod.daily
+                            ? store.categories.where((category) {
+                                return store.expenses.any((expense) => 
+                                  expense.category == category && 
+                                  expense.date.year == _selectedDate.year &&
+                                  expense.date.month == _selectedDate.month &&
+                                  expense.date.day == _selectedDate.day
+                                );
+                              }).toList()
+                            : store.categories;
+
+                          if (index >= categoriesToShow.length) return null;
+
+                          final category = categoriesToShow[index];
+                          final expenses = store.expenses.where((e) => 
+                            e.category == category &&
+                            switch (_selectedPeriod) {
+                              TimePeriod.daily => 
+                                e.date.year == _selectedDate.year &&
+                                e.date.month == _selectedDate.month &&
+                                e.date.day == _selectedDate.day,
+                              TimePeriod.monthly =>
+                                e.date.year == _selectedDate.year &&
+                                e.date.month == _selectedDate.month,
+                              TimePeriod.yearly =>
+                                e.date.year == _selectedDate.year,
+                            }
+                          ).toList();
+                          final total = expenses.fold(0.0, (sum, e) => sum + e.amount);
+
+                          return Card(
+                            margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                            child: InkWell(
+                              borderRadius: BorderRadius.circular(12),
+                              onTap: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => CategoryDetailView(
+                                      category: category,
+                                      expenses: expenses,
+                                      currencySymbol: store.profile.currency.symbol,
+                                    ),
+                                  ),
+                                );
+                              },
+                              child: Padding(
+                                padding: const EdgeInsets.all(16),
+                                child: Row(
+                                  children: [
+                                    CircleAvatar(
+                                      backgroundColor: Theme.of(context).colorScheme.primaryContainer,
+                                      child: Text(
+                                        category.emoji,
+                                        style: const TextStyle(fontSize: 20),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 16),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            category.name,
+                                            style: const TextStyle(
+                                              fontWeight: FontWeight.bold,
+                                              fontSize: 16,
+                                            ),
+                                          ),
+                                          Text(
+                                            expenses.isEmpty 
+                                              ? 'No expenses' 
+                                              : '${expenses.length} expense${expenses.length == 1 ? '' : 's'}',
+                                            style: Theme.of(context).textTheme.bodySmall,
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    Text(
+                                      '${store.profile.currency.symbol}${total.toStringAsFixed(2)}',
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 16,
+                                        color: Theme.of(context).colorScheme.primary,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          );
+                        }
+                      },
+                      childCount: _searchText.isNotEmpty 
+                          ? _filteredExpenses.length 
+                          : store.categories.length,
+                    ),
                   ),
-                ),
         ],
       ),
     );
