@@ -121,12 +121,12 @@ class _ProfileEditSheetState extends State<ProfileEditSheet> {
                       Row(
                         children: [
                           CircleAvatar(
-                            radius: 40,
+                            radius: 30,
                             backgroundImage: store.profile.imageData != null
                                 ? MemoryImage(store.profile.imageData!)
                                 : null,
                             child: store.profile.imageData == null
-                                ? const Icon(Icons.person, size: 40)
+                                ? const Icon(Icons.person, size: 30)
                                 : null,
                           ),
                           const SizedBox(width: 16),

@@ -26,7 +26,16 @@ NewLedger is a modern expense tracking and financial management application buil
 - 🔄 State management with Provider
 
 ## Screenshots
-[Add your app screenshots here]
+
+<p float="left">
+  <img src="assets/images/NewLedger1.png" width="200" alt="Home Screen" />
+  <img src="assets/images/NewLedger2.png" width="200" alt="Add Expense" /> 
+  <img src="assets/images/NewLedger3.png" width="200" alt="Expense Details" />
+  <img src="assets/images/NewLedger4.png" width="200" alt="Categories" />
+  <img src="assets/images/NewLedger5.png" width="200" alt="Profile" />
+  <img src="assets/images/NewLedger6.png" width="200" alt="Analytics" />
+  <img src="assets/images/NewLedger7.png" width="200" alt="Settings" />
+</p>
 
 ## Installation
 
@@ -46,18 +55,63 @@ NewLedger is a modern expense tracking and financial management application buil
 
 ```
 lib/
-├── views/                    # UI screens
-│   ├── splash_view.dart      # Launch screen
-│   ├── vault_view.dart       # Main expense list
-│   ├── profile_view.dart     # User settings
-│   ├── add_expense_view.dart # Add new expenses
-│   ├── split_details_view.dart # Expense splitting
-│   └── category_detail_view.dart # Category management
-├── widgets/                  # Reusable components
-│   ├── collaborator_dialog.dart  # User collaboration
-│   └── ...
-└── ...
+├── models/                   # Data models
+│   ├── expense.dart         # Expense model
+│   ├── category.dart        # Category model
+│   └── profile.dart         # User profile model
+│
+├── providers/               # State management
+│   └── expense_store.dart   # Main state store
+│
+├── services/               # Business logic
+│   └── currency_service.dart # Currency handling
+│
+├── utils/                  # Helper functions
+│   └── constants.dart      # App constants
+│
+├── views/                  # UI screens
+│   ├── splash_view.dart    # Launch screen
+│   ├── content_view.dart   # Main container
+│   ├── vault_view.dart     # Expense list
+│   ├── profile_view.dart   # User profile
+│   ├── add_expense_view.dart # Add expense
+│   ├── split_details_view.dart # Split expenses
+│   └── category_detail_view.dart # Categories
+│
+├── widgets/               # Reusable components
+│   ├── collaborator_dialog.dart # User collaboration
+│   └── profile_edit_sheet.dart # Profile editing
+│
+└── main.dart             # App entry point
+
+assets/
+├── images/               # Image assets
+│   ├── logo.png         # App logo
+│   └── NewLedger*.png   # Screenshots
+│
+└── fonts/               # Custom fonts
+
+android/                 # Android specific files
+├── app/
+│   └── src/
+│       └── main/
+│           ├── kotlin/  # Kotlin source
+│           └── res/     # Resources
+│
+ios/                    # iOS specific files
+├── Runner/
+│   └── Assets.xcassets/ # iOS assets
+│
+web/                    # Web specific files
+└── index.html          # Web entry point
 ```
+
+The project follows a clean architecture pattern with clear separation of concerns:
+- `models/`: Data structures and business logic
+- `providers/`: State management using Provider
+- `services/`: Business logic and external services
+- `views/`: UI screens and navigation
+- `widgets/`: Reusable UI components
 
 ## Key Features Explained
 
@@ -108,16 +162,6 @@ flutter build apk --release
 flutter build ios --release
 ```
 
-## Contributing
-
-We welcome contributions to NewLedger! Please follow these steps:
-
-1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/AmazingFeature`)
-3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
-4. Push to the branch (`git push origin feature/AmazingFeature`)
-5. Open a Pull Request
-
 ## System Requirements
 
 - **iOS**: iOS 12.0 or higher
@@ -134,19 +178,9 @@ Key packages used in this project:
 - `path_provider`: File system access
 - `intl`: Internationalization support
 
-## License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
 ## Support
 
-For support, email support@newledger.com or join our Slack channel.
-
-## Acknowledgments
-
-- Flutter team for the amazing framework
-- All contributors who have helped shape NewLedger
-- Our beta testers for their valuable feedback
+For support, email fongyu903@gmail.com.
 
 ---
 
