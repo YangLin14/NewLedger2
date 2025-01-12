@@ -33,6 +33,8 @@ NewLedger is a modern expense tracking and financial management application buil
   <img src="assets/images/NewLedger3.png" width="200" alt="Expense Details" />
   <img src="assets/images/NewLedger4.png" width="200" alt="Categories" />
   <img src="assets/images/NewLedger5.png" width="200" alt="Profile" />
+  <img src="assets/images/NewLedger9.png" width="200" alt="Settings" />
+  <img src="assets/images/NewLedger8.png" width="200" alt="Analytics" />
   <img src="assets/images/NewLedger6.png" width="200" alt="Analytics" />
   <img src="assets/images/NewLedger7.png" width="200" alt="Settings" />
 </p>

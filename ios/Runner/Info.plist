@@ -45,5 +45,9 @@
 	<true/>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
+	<key>NSCameraUsageDescription</key>
+	<string>NewLedger needs camera access to scan receipts and set profile pictures</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>NewLedger needs photo library access to add receipt images and profile pictures</string>
 </dict>
 </plist>
