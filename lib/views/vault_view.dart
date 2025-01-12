@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:month_picker_dialog/month_picker_dialog.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import '../models/category.dart';
@@ -289,6 +290,113 @@ class _VaultViewState extends State<VaultView> {
     );
   }
 
+  Future<void> _selectDate(BuildContext context) async {
+    switch (_selectedPeriod) {
+      case TimePeriod.daily:
+        final DateTime? picked = await showDatePicker(
+          context: context,
+          initialDate: _selectedDate,
+          firstDate: DateTime(2000),
+          lastDate: DateTime(2100),
+        );
+        if (picked != null && picked != _selectedDate) {
+          setState(() {
+            _selectedDate = picked;
+          });
+        }
+        break;
+        
+      case TimePeriod.monthly:
+        final DateTime? picked = await showMonthPicker(
+          context: context,
+          initialDate: _selectedDate,
+          firstDate: DateTime(2000),
+          lastDate: DateTime(2100),
+        );
+        if (picked != null) {
+          setState(() {
+            _selectedDate = DateTime(picked.year, picked.month, 1);
+          });
+        }
+        break;
+        
+      case TimePeriod.yearly:
+        final DateTime? picked = await showDialog<DateTime>(
+          context: context,
+          builder: (BuildContext context) {
+            return AlertDialog(
+              title: const Text('Select Year'),
+              content: SizedBox(
+                width: 300,
+                height: 300,
+                child: YearPicker(
+                  firstDate: DateTime(2000),
+                  lastDate: DateTime(2100),
+                  selectedDate: _selectedDate,
+                  onChanged: (DateTime dateTime) {
+                    Navigator.pop(context, dateTime);
+                  },
+                ),
+              ),
+            );
+          },
+        );
+        if (picked != null) {
+          setState(() {
+            _selectedDate = DateTime(picked.year, 1, 1);
+          });
+        }
+        break;
+    }
+  }
+
+  Widget _buildDateSelector() {
+    String dateText;
+    switch (_selectedPeriod) {
+      case TimePeriod.daily:
+        dateText = DateFormat('MMM d, y').format(_selectedDate);
+        break;
+      case TimePeriod.monthly:
+        dateText = DateFormat('MMMM y').format(_selectedDate);
+        break;
+      case TimePeriod.yearly:
+        dateText = DateFormat('y').format(_selectedDate);
+        break;
+    }
+
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        IconButton(
+          icon: const Icon(Icons.chevron_left),
+          onPressed: _previousPeriod,
+        ),
+        InkWell(
+          onTap: () => _selectDate(context),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 4.0),
+            child: Row(
+              children: [
+                Text(
+                  dateText,
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(width: 4),
+                const Icon(Icons.calendar_today, size: 16),
+              ],
+            ),
+          ),
+        ),
+        IconButton(
+          icon: const Icon(Icons.chevron_right),
+          onPressed: _nextPeriod,
+        ),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final store = Provider.of<ExpenseStore>(context);
@@ -529,26 +637,38 @@ class _VaultViewState extends State<VaultView> {
                                     ],
                                   ),
                                   const Divider(height: 24),
-                                  Row(
-                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                    children: [
-                                      Text(
-                                        _formattedSelectedDate,
-                                        style: Theme.of(context).textTheme.bodyMedium,
-                                      ),
-                                      Row(
+                                  InkWell(
+                                    onTap: () => _selectDate(context),
+                                    child: Padding(
+                                      padding: const EdgeInsets.symmetric(vertical: 8.0),
+                                      child: Row(
+                                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                         children: [
-                                          IconButton(
-                                            icon: const Icon(Icons.chevron_left),
-                                            onPressed: _previousPeriod,
+                                          Row(
+                                            children: [
+                                              Text(
+                                                _formattedSelectedDate,
+                                                style: Theme.of(context).textTheme.bodyMedium,
+                                              ),
+                                              const SizedBox(width: 4),
+                                              const Icon(Icons.calendar_today, size: 16),
+                                            ],
                                           ),
-                                          IconButton(
-                                            icon: const Icon(Icons.chevron_right),
-                                            onPressed: _nextPeriod,
+                                          Row(
+                                            children: [
+                                              IconButton(
+                                                icon: const Icon(Icons.chevron_left),
+                                                onPressed: _previousPeriod,
+                                              ),
+                                              IconButton(
+                                                icon: const Icon(Icons.chevron_right),
+                                                onPressed: _nextPeriod,
+                                              ),
+                                            ],
                                           ),
                                         ],
                                       ),
-                                    ],
+                                    ),
                                   ),
                                 ],
                               ),
