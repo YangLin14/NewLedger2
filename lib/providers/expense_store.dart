@@ -21,6 +21,7 @@ class ExpenseStore extends ChangeNotifier {
   static const String _expensesKey = 'savedExpenses';
   static const String _categoriesKey = 'savedCategories';
   static const String _profileKey = 'savedProfile';
+  static const String _settledSplitsKey = 'settledSplits';
 
   // Getters
   List<Expense> get expenses => _expenses;
@@ -42,6 +43,47 @@ class ExpenseStore extends ChangeNotifier {
     _lastPayers[categoryId] = payerId;
   }
 
+  // Add a set to track settled splits
+  Set<String> _settledSplits = {};
+
+  // Method to check if a split is settled
+  bool isSplitSettled(String person1, String person2, String categoryId) {
+    final splitKey = '${person1}_${person2}_$categoryId';
+    return _settledSplits.contains(splitKey);
+  }
+
+  // Method to settle up a split
+  void settleSplit(String person1, String person2, ExpenseCategory category) {
+    final splitKey = '${person1}_${person2}_${category.id}';
+    _settledSplits.add(splitKey);
+    _saveSettledSplits();
+    notifyListeners();
+  }
+
+  // Method to unsettle a split
+  void unsettleSplit(String person1, String person2, ExpenseCategory category) {
+    final splitKey = '${person1}_${person2}_${category.id}';
+    _settledSplits.remove(splitKey);
+    _saveSettledSplits();
+    notifyListeners();
+  }
+
+  // Save settled splits to SharedPreferences
+  Future<void> _saveSettledSplits() async {
+    final prefs = await SharedPreferences.getInstance();
+    final settledSplitsList = _settledSplits.toList();
+    await prefs.setStringList(_settledSplitsKey, settledSplitsList);
+  }
+
+  // Load settled splits from SharedPreferences
+  Future<void> _loadSettledSplits() async {
+    final prefs = await SharedPreferences.getInstance();
+    final settledSplitsList = prefs.getStringList(_settledSplitsKey);
+    if (settledSplitsList != null) {
+      _settledSplits = settledSplitsList.toSet();
+    }
+  }
+
   ExpenseStore() {
     init();
   }
@@ -49,6 +91,7 @@ class ExpenseStore extends ChangeNotifier {
   // Initialize the store
   Future<void> init() async {
     await loadData();
+    await _loadSettledSplits();
     await profile.loadCurrency();
     notifyListeners();
   }
@@ -279,6 +322,8 @@ class ExpenseStore extends ChangeNotifier {
     _profile = Profile(name: 'User');
     _profile.imageData = null;
     _profile.backgroundImageData = null;
+    _settledSplits.clear();
+    _saveSettledSplits();
     _deleteProfileImages();
     synchronize();
     notifyListeners();
@@ -324,5 +369,41 @@ class ExpenseStore extends ChangeNotifier {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('themeMode', mode.name);
     notifyListeners();
+  }
+
+  // Add this method to calculate splits between two people
+  Map<String, double> calculateSplitsBetween(String person1, String person2, ExpenseCategory category) {
+    // Get latest expenses for this category
+    final expenses = _expenses
+        .where((e) => e.category.id == category.id)
+        .toList();
+    
+    // Sort expenses by date, most recent first
+    final sortedExpenses = List<Expense>.from(expenses)
+      ..sort((a, b) => b.date.compareTo(a.date));
+
+    double totalOwed = 0;
+
+    for (var expense in sortedExpenses) {
+      if (expense.payment != null) {
+        final payment = expense.payment!;
+        double? amount;
+
+        // Case 1: person1 owes person2 for this expense
+        if (payment.payerId == person2 && payment.splits.containsKey(person1)) {
+          amount = payment.splits[person1];
+        }
+        // Case 2: person2 owes person1 for this expense (will be negative)
+        else if (payment.payerId == person1 && payment.splits.containsKey(person2)) {
+          amount = -(payment.splits[person2] ?? 0);
+        }
+
+        if (amount != null && amount.abs() > 0.01) {
+          totalOwed += amount;
+        }
+      }
+    }
+
+    return {'amount': totalOwed};
   }
 } 

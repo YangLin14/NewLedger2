@@ -7,6 +7,7 @@ import 'expense_detail_view.dart';
 import 'package:provider/provider.dart';
 import '../widgets/collaborator_dialog.dart';
 import 'add_expense_view.dart';
+import 'split_details_view.dart';
 
 class CategoryDetailView extends StatefulWidget {
   final ExpenseCategory category;
@@ -132,31 +133,6 @@ class _CategoryDetailViewState extends State<CategoryDetailView> {
   }
 
   List<Widget> _buildSplitSummary(BuildContext context, List<Expense> expenses, ExpenseStore store) {
-    // Calculate totals for each person
-    Map<String, double> owedAmounts = {'me': 0.0};
-    Map<String, double> paidAmounts = {'me': 0.0};
-    
-    // Initialize maps with all collaborators
-    for (String collaborator in widget.category.collaborators) {
-      owedAmounts[collaborator] = 0.0;
-      paidAmounts[collaborator] = 0.0;
-    }
-
-    // Calculate totals
-    for (var expense in expenses) {
-      if (expense.payment != null) {
-        // Add to paid amounts
-        final payer = expense.payment!.payerId;
-        paidAmounts[payer] = (paidAmounts[payer] ?? 0) + expense.amount;
-
-        // Add split amounts to owed amounts
-        expense.payment!.splits.forEach((person, amount) {
-          owedAmounts[person] = (owedAmounts[person] ?? 0) + amount;
-        });
-      }
-    }
-
-    // Calculate who owes who
     List<Widget> summaryWidgets = [
       Padding(
         padding: const EdgeInsets.symmetric(vertical: 12),
@@ -179,39 +155,43 @@ class _CategoryDetailViewState extends State<CategoryDetailView> {
       ),
     ];
 
-    // Create a map of who owes who
-    Map<String, Map<String, double>> finalDebts = {};
-    
-    // For each person who has paid
-    for (var payer in paidAmounts.keys) {
-      final paid = paidAmounts[payer] ?? 0;
-      final owed = owedAmounts[payer] ?? 0;
-      final net = paid - owed;
-      
-      if (net > 0) {  // This person needs to be paid back
-        // Find people who owe money
-        for (var debtor in owedAmounts.keys) {
-          final debtorPaid = paidAmounts[debtor] ?? 0;
-          final debtorOwed = owedAmounts[debtor] ?? 0;
-          final debtorNet = debtorPaid - debtorOwed;
+    // Calculate splits using the store method
+    final allParticipants = {'me', ...widget.category.collaborators};
+    Map<String, Map<String, double>> consolidatedDebts = {};
+
+    // Calculate debts between each pair
+    for (var person1 in allParticipants) {
+      for (var person2 in allParticipants) {
+        if (person1 != person2) {
+          final splits = store.calculateSplitsBetween(person1, person2, widget.category);
+          final amount = splits['amount'] ?? 0;
           
-          if (debtorNet < 0 && debtor != payer) {  // This person needs to pay
-            final debt = (-debtorNet).clamp(0, net).toDouble();
-            if (debt > 0.01) {  // Only show debts greater than 1 cent
-              finalDebts[debtor] = finalDebts[debtor] ?? {};
-              finalDebts[debtor]![payer] = debt;
-            }
+          if (amount > 0.01) {  // Only show if there's a significant debt
+            consolidatedDebts[person1] = consolidatedDebts[person1] ?? {};
+            consolidatedDebts[person1]![person2] = amount;
           }
         }
       }
     }
 
-    // Update the debt summary items
-    finalDebts.forEach((debtor, creditors) {
+    // Create summary widgets
+    consolidatedDebts.forEach((debtor, creditors) {
       creditors.forEach((creditor, amount) {
-        if (amount > 0.01) {
-          summaryWidgets.add(
-            Container(
+        summaryWidgets.add(
+          InkWell(
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => SplitDetailsView(
+                    person1: debtor,
+                    person2: creditor,
+                    category: widget.category,
+                  ),
+                ),
+              );
+            },
+            child: Container(
               margin: const EdgeInsets.symmetric(vertical: 4),
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
@@ -223,39 +203,53 @@ class _CategoryDetailViewState extends State<CategoryDetailView> {
                   Icon(
                     Icons.arrow_forward,
                     size: 16,
-                    color: Theme.of(context).colorScheme.error,
+                    color: store.isSplitSettled(debtor, creditor, widget.category.id)
+                        ? Colors.green
+                        : Theme.of(context).colorScheme.error,
                   ),
                   const SizedBox(width: 8),
                   Expanded(
-                    child: RichText(
-                      text: TextSpan(
-                        style: DefaultTextStyle.of(context).style,
-                        children: [
-                          TextSpan(
-                            text: _formatName(debtor),
-                            style: const TextStyle(fontWeight: FontWeight.w500),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: RichText(
+                            text: TextSpan(
+                              style: DefaultTextStyle.of(context).style,
+                              children: [
+                                TextSpan(
+                                  text: _formatName(debtor),
+                                  style: const TextStyle(fontWeight: FontWeight.w500),
+                                ),
+                                TextSpan(
+                                  text: store.isSplitSettled(debtor, creditor, widget.category.id)
+                                      ? ' sent '
+                                      : ' owes ',
+                                ),
+                                TextSpan(
+                                  text: _formatName(creditor),
+                                  style: const TextStyle(fontWeight: FontWeight.w500),
+                                ),
+                              ],
+                            ),
                           ),
-                          const TextSpan(text: ' owes '),
-                          TextSpan(
-                            text: _formatName(creditor),
-                            style: const TextStyle(fontWeight: FontWeight.w500),
-                          ),
-                        ],
-                      ),
+                        ),
+                      ],
                     ),
                   ),
                   Text(
                     '${store.profile.currency.symbol}${amount.toStringAsFixed(2)}',
                     style: TextStyle(
-                      color: Theme.of(context).colorScheme.error,
+                      color: store.isSplitSettled(debtor, creditor, widget.category.id)
+                          ? Colors.green
+                          : Theme.of(context).colorScheme.error,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
                 ],
               ),
             ),
-          );
-        }
+          ),
+        );
       });
     });
 
