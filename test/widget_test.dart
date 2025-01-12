@@ -7,24 +7,53 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-
+import 'package:hive_flutter/hive_flutter.dart';
 import 'package:newledger/main.dart';
+import 'package:newledger/providers/expense_store.dart';
+import 'package:newledger/services/currency_service.dart';
+import 'package:newledger/views/splash_view.dart';
+import 'package:provider/provider.dart';
 
 void main() {
-  testWidgets('Counter increments smoke test', (WidgetTester tester) async {
+  setUp(() async {
+    // Initialize Hive for testing
+    await Hive.initFlutter();
+    await Hive.openBox('expenses');
+    await Hive.openBox('categories');
+    await Hive.openBox('receipts');
+  });
+
+  tearDown(() async {
+    // Clean up Hive boxes after tests
+    await Hive.deleteBoxFromDisk('expenses');
+    await Hive.deleteBoxFromDisk('categories');
+    await Hive.deleteBoxFromDisk('receipts');
+  });
+
+  testWidgets('App launches and shows splash screen', (WidgetTester tester) async {
+    // Initialize stores
+    final expenseStore = ExpenseStore();
+    await expenseStore.loadData();
+
     // Build our app and trigger a frame.
-    await tester.pumpWidget(const MyApp());
+    await tester.pumpWidget(
+      MultiProvider(
+        providers: [
+          ChangeNotifierProvider.value(value: expenseStore),
+          ChangeNotifierProvider(create: (_) => CurrencyService.instance),
+        ],
+        child: MyApp(expenseStore: expenseStore),
+      ),
+    );
 
-    // Verify that our counter starts at 0.
-    expect(find.text('0'), findsOneWidget);
-    expect(find.text('1'), findsNothing);
+    // Verify that the splash screen is shown initially
+    expect(find.byType(SplashView), findsOneWidget);
 
-    // Tap the '+' icon and trigger a frame.
-    await tester.tap(find.byIcon(Icons.add));
-    await tester.pump();
+    // Wait for animations to complete
+    await tester.pumpAndSettle();
 
-    // Verify that our counter has incremented.
-    expect(find.text('0'), findsNothing);
-    expect(find.text('1'), findsOneWidget);
+    // Additional test cases
+    expect(find.text('NewLedger 🏦'), findsOneWidget);
+    expect(find.byType(Image), findsWidgets);
   });
 }
